@@ -3,6 +3,7 @@ const NUMAGENTS = 1;
 
 let agents = [];
 let tiles = [];
+let graph;
 
 let canvas;
 let slider, buttonStop, buttonClear
@@ -14,19 +15,33 @@ function setup() {
 	frameRate(60);
 
 	setupControls();
+	let graph = new Graph();
 
 	colorMode(HSB);
 	background(0);
-
 	noStroke();
-
+	
+	let index = 0
 	for(let i=0; i<width; i+=GRID_SIZE){
 		for(let j=0; j<height; j+=GRID_SIZE){
 			tiles.push(new Tile(i,j));
+			graph.addVertex(index);
+
+			index++;
 		}
 	}
+	for(let i=0; i<graph.vertices.length; i++){
+		if((i+1)%(width/GRID_SIZE) !=0){ 
+			graph.addEdge(i, i+1); //add edges horizontally
 
+		}
+		if(i-2900 < 0){
+			graph.addEdge(i, i+50); //add edges vertically
+		}
+	}
+	console.log(graph.pathFromTo(5, 500));
 	
+
 	for(let i=0; i<NUMAGENTS; i++){
 		let r = random(0,4);
 		if(r<1){
@@ -146,7 +161,6 @@ function Tile(ix, jy){
 	this.y = jy;
 	this.decay = 110;
 	this.touched = false;
-
 
 	this.display = function(){
 		fill(this.decay, 75, 80);
