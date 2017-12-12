@@ -1,22 +1,25 @@
-const GRID_SIZE = 50;
-const NUMAGENTS = 1;
+const GRID_SIZE = 100;
+const GRID_WIDTH = 6;
+const GRID_HEIGHT = 5;
+const NUMAGENTS = 0;
+
+//index i*WIDTH+j
+//k%WIDTH to get i
 
 let agents = [];
 let tiles = [];
-let graph;
 let path = [];
-
+let treads = {};
 let canvas;
 let slider, buttonStop, buttonClear
 
 function setup() {
-	canvas = createCanvas(600,500);
+	canvas = createCanvas(GRID_WIDTH*GRID_SIZE,GRID_HEIGHT*GRID_SIZE);
 	canvas.position(2, 50);
 	canvas.mousePressed(createAgentAtClick);
 	frameRate(60);
 
 	setupControls();
-	//let graph = new Graph();
 
 	colorMode(HSB);
 	background(0);
@@ -28,7 +31,6 @@ function setup() {
 		for(let j=0; j<height; j+=GRID_SIZE){
 			tiles.push(new Tile(i, j, index));
 			index++;
-			//graph.addVertex(index);
 		}
 	}
 
@@ -68,32 +70,7 @@ function setup() {
 			agents.push(new Agent(random(0,height), height)); //bottom
 		}
 	}
-// 		if(tiles[i+1]){
-// 			if(t.x == tiles[i+1].x){ 
-// 				t.neighbors.push(tiles[i+1]); //right neighbor
-// 			}
-// 		}
-// 		if(tiles[i-1]){
-// 			if(t.x == tiles[i-1].x){
-// 				t.neighbors.push(tiles[i-1]);
-// 			}
-// 		}
-// 		if(tiles[]){
-			
-// 		}
 
-// 	for(let i=0; i<graph.vertices.length; i++){
-// 		if((i+1)%(width/GRID_SIZE) !=0){ 
-// 			graph.addEdge(i, i+1); //add edges horizontally
-// 		}
-// 		if(i-2900 < 0){
-// 			graph.addEdge(i, i+50); //add edges vertically
-// 		}
-// 	}
-// 	console.log(graph.pathFromTo(5, 500));
-
-	path = search(tiles, 1, 3);
-	console.log(path);
 
 }
 
@@ -113,7 +90,16 @@ function setupControls(){
 
 function createAgentAtClick(){
 	console.log("click",mouseX,mouseY);
-	agents.push(new Agent(mouseX, mouseY));
+	//agents.push(new Agent(mouseX, mouseY));
+
+	let k = tileToIndex((mouseX/GRID_SIZE)|0, (mouseY/GRID_SIZE)|0)
+
+	if(k in treads){
+		treads[k] += 1;
+	}else{
+		treads[k] = 1;
+	}
+	console.log(treads[k]);
 }
 
 function removeAgents(){
@@ -122,11 +108,44 @@ function removeAgents(){
 
 function clearTiles(){
 	for (let i=0; i<tiles.length; i++){
-		tiles[i].decay = 110;
+		tiles[i].decay = 0;
 	}
 }
 
-function search(grid, start, dest){
+function tileToIndex(i,j){
+	return (i*GRID_WIDTH+j)
+}
+
+function indexToTile(k){
+	return [(k/GRID_WIDTH)|0, k%GRID_WIDTH]
+}
+
+function getNeighbors(k){
+	let [i,j] = indexToTile(k);
+	let neighbors = [];
+	if(i>0){
+		neighbors.push(tileToIndex(i-1, j));
+	}
+	if(i<GRID_WIDTH-1){
+		neighbors.push(tileToIndex(i+1, j));
+	}
+	if(j>0){
+		neighbors.push(tileToIndex(i, j-1));
+	}
+	if(j<GRID_HEIGHT-1){
+		neighbors.push(tileToIndex(i, j+1));
+	}
+	return neighbors;
+}
+
+function getTraversalCost(k){
+	if (k in treads){
+		return 1+treads[k];
+	}
+	return 1;
+}
+
+function search(start, dest){
 	let q = new PriorityQueue();
 	q.push(start, 0);
 
@@ -140,31 +159,40 @@ function search(grid, start, dest){
 		console.log("at tile", current);
 
 		if(current == dest){
-			return previous;
+			let path = []
+			while(current != null){
+				path.push(current);
+				current = previous[current];
+			}
+			return path;
 		}
 
-		for(let i=0; i<grid[current].neighbors.length; i++){
-			let next = grid[current].neighbors[i].i;
-			//let new_cost = cost_so_far[current] + grid[next].decay;
+		let neighbors = getNeighbors(current);
+		let current_cost = cost_so_far[current]
+		for(let i=0; i<neighbors.length; i++){
+			let next = neighbors[i];
+			let new_cost = current_cost + getTraversalCost(next);
 
-			if(previous[next] == undefined){
-				q.push(next, 0);
+			if(cost_so_far[next] == undefined || new_cost < cost_so_far[next]){
+				cost_so_far[next] = new_cost;
+				console.log(next, cost_so_far[next]);
+				let priority = -new_cost
+				q.push(next, priority);
 				previous[next] = current;
 			}
-			// if(cost_so_far[next] == undefined || new_cost < cost_so_far[next]){
-			// 	cost_so_far[next] = new_cost;
-			// 	let priority = new_cost
-			// 	q.push(next, priority);
-			// 	previous[next] = current;
-			// }
 		}
 	}
-	return previous;
 }
 
 function draw() {
 	//frameRate(slider.value());
+	stroke(0);
+	strokeWeight(1);
 	for (let i=0; i<tiles.length; i++){
+		if(i in treads){
+			tiles[i].decay = treads[i];
+		}
+		
 		if(agents.length > 0){
 			for(let j = 0; j<agents.length; j++){
 				a = agents[j];
@@ -203,13 +231,18 @@ function draw() {
 			}
 		}
 	}
+	let path = search(0, 20);
 	stroke(255);
-	for(let key in path){
-		let a = tiles[key]
-		if(tiles[path[key]] != null){
-			let b = tiles[path[key]]
-			line(a.x, a.y, b.x, b.y);
-		}
+	strokeWeight(2);
+	for(let i=0; i<path.length-1; i++){
+		let [ai, aj] = indexToTile(path[i]);
+		let [bi, bj] = indexToTile(path[i+1]);
+		//console.log(b);
+
+		line((aj*GRID_SIZE)+GRID_SIZE/2, 
+			(ai*GRID_SIZE)+GRID_SIZE/2, 
+			(bj*GRID_SIZE)+GRID_SIZE/2, 
+			(bi*GRID_SIZE)+GRID_SIZE/2);
 	}
 	noStroke();
 }
