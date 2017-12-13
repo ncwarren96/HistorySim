@@ -1,7 +1,7 @@
-const GRID_SIZE = 25;
-const GRID_WIDTH = 24;
-const GRID_HEIGHT = 20;
-const NUMAGENTS = 0;
+const GRID_SIZE = 10;
+const GRID_WIDTH = 60;
+const GRID_HEIGHT = 50;
+const NUMAGENTS = 3;
 
 //index i*WIDTH+j
 //k%WIDTH to get i
@@ -11,10 +11,10 @@ let tiles = [];
 let path = [];
 let treads = {};
 let canvas;
-let slider, buttonStop, buttonClear
+let slider, buttonStop, buttonClear, buttonNew
 
 function setup() {
-	canvas = createCanvas(GRID_WIDTH*GRID_SIZE,GRID_HEIGHT*GRID_SIZE);
+	canvas = createCanvas((GRID_WIDTH*GRID_SIZE),(GRID_HEIGHT*GRID_SIZE));
 	canvas.position(2, 50);
 	canvas.mousePressed(createAgentAtClick);
 	frameRate(30);
@@ -27,8 +27,8 @@ function setup() {
 
 	//init array of Tiles with GRID_SIZE
 	let index = 0;
-	for(let i=0; i<height; i+=GRID_SIZE){
-		for(let j=0; j<width; j+=GRID_SIZE){
+	for(let i=0; i<(GRID_HEIGHT*GRID_SIZE); i+=GRID_SIZE){
+		for(let j=0; j<(GRID_WIDTH*GRID_SIZE); j+=GRID_SIZE){
 			tiles.push(new Tile(j, i, index));
 			index++;
 		}
@@ -51,6 +51,21 @@ function setup() {
 
 }
 
+function initAgents(num){
+	for(let i=0; i<num; i++){
+		let r = random(0,4);
+		if(r<1){
+			agents.push(new Agent(0, random(0, height))); //left
+		}else if(r<2){
+			agents.push(new Agent(random(0,width), 0)); //top
+		}else if(r<3){
+			agents.push(new Agent(width, random(0,height))); //right
+		}else{
+			agents.push(new Agent(random(0,height), height)); //bottom
+		}
+	}
+}
+
 function setupControls(){
 	buttonStop = createButton("Stop");
 	buttonStop.position(2, 30);
@@ -60,22 +75,23 @@ function setupControls(){
 	buttonClear.position(50, 30);
 	buttonClear.mousePressed(clearTiles);
 
+	buttonNew = createButton("New");
+	buttonNew.position(100, 30);
+	buttonNew.mousePressed(function() { initAgents(NUMAGENTS);})
+
 	slider = createSlider(1, 20, 2);
 	slider.position(150,30);
 	slider.style('width', '150px');
 }
 
 function createAgentAtClick(){
-	console.log("click",mouseX,mouseY);
-	agents.push(new Agent(mouseX, mouseY));
+	
+	//agents.push(new Agent(mouseX, mouseY));
 
-	let k = tileToIndex( (mouseY/GRID_SIZE)|0, (mouseX/GRID_SIZE)|0)
+	let k = tileToIndex( (mouseY/GRID_SIZE)|0, (mouseX/GRID_SIZE)|0);
+	console.log("click",mouseX,mouseY, "on tile ", k);
 
-	if(k in treads){
-		treads[k] -= 1;
-	}else{
-		treads[k] = 110;
-	}
+	treads[k] = 300;
 }
 
 function removeAgents(){
@@ -127,6 +143,7 @@ function getTraversalCost(k){
 }
 
 function search(start, dest){
+	console.log("finsing path from", start, dest);
 	let q = new PriorityQueue();
 	q.push(start, 0);
 
@@ -161,9 +178,11 @@ function search(start, dest){
 			}
 		}
 	}
+	console.log("NO PATH FOUND!")
 }
 
 function draw() {
+	//console.log(treads);
 	//frameRate(slider.value());
 	for (let i=0; i<tiles.length; i++){
 		if(i in treads){
@@ -194,7 +213,7 @@ function draw() {
 		for(let i = 0; i<agents.length; i++){
 			let a = agents[i];
 			a.move();
-			a.display();
+			//a.display();
 			a.showPath();
 
 			//spawn new agent after going off screen;
@@ -238,26 +257,56 @@ function drawPath(path){
 function markPathTread(path){
 	for(let i=0; i<path.length-1; i++){
 		if(path[i] in treads){
-			treads[path[i]] -=5;
+			if(treads[path[i]]>0){
+				treads[path[i]] -=1;
+			}
 		}else{
 			treads[path[i]] = 109;
 		}
 	}
 }
 
+function getDest(){
+	let l, h;
+	if(random()>0.5){
+		l = random(width-1);
+		if(random()>0.5){
+			h = height-1
+		}else{
+			h = 0 ;
+		}
+	}else{
+		h = random(height-1);
+		if(random()>0.5){
+			l = width-1;
+		}else{
+			l = 0;
+		}
+	}
+	return [l|0,h|0];
+}
 //---OBJECTS---
 
 //Agent class
 function Agent(ix, iy){
 	this.x = ix;
 	this.y = iy;
+	this.destPos = getDest();
+	this.yDest = this.destPos[1];
+	this.xDest = this.destPos[0];
+	
+	this.dest;
 	this.start = tileToIndex((this.y/GRID_SIZE)|0,(this.x/GRID_SIZE)|0);
-	this.path = search(this.start, Math.floor(Math.random() * GRID_WIDTH));
-	markPathTread(this.path);
-	console.log(tileToPos(this.path[0]));
+	if(random()>0.5){
+		this.dest = tileToIndex((this.yDest/GRID_SIZE)|0,(this.xDest/GRID_SIZE)|0);
+	}else{
+		this.dest = 743;
+	}
+	
 
-	this.xDest = random(0, width);
-	this.yDest = random(0, height);
+	this.path = search(this.start, this.dest);
+	markPathTread(this.path);
+
 	this.xSpeed = (this.xDest - this.x);
 	this.ySpeed = (this.yDest - this.y);
 	let factor = slider.value()/Math.sqrt(this.xSpeed * this.xSpeed + this.ySpeed * this.ySpeed);
