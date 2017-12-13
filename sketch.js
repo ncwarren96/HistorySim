@@ -1,7 +1,9 @@
 const GRID_SIZE = 10;
 const GRID_WIDTH = 60;
 const GRID_HEIGHT = 50;
-const NUMAGENTS = 3;
+const NUMAGENTS = 1;
+
+let show_path = true;
 
 //index i*WIDTH+j
 //k%WIDTH to get i
@@ -188,24 +190,6 @@ function draw() {
 		if(i in treads){
 			tiles[i].green = treads[i];
 		}
-		
-// 		if(agents.length > 0){
-// 			for(let j = 0; j<agents.length; j++){
-// 				a = agents[j];
-
-// 				if(a.x < tiles[i].x+GRID_SIZE+2 && 
-// 				a.x+GRID_SIZE+2 > tiles[i].x &&
-// 				a.y < tiles[i].y+GRID_SIZE+2 &&
-// 				a.y+GRID_SIZE+2 > tiles[i].y){
-					
-// 					if(i in treads){
-// 						treads[i] -=1;
-// 					}else{
-// 						treads[i] = 110;
-// 					}
-// 				}
-//			}
-//		}
 		tiles[i].display();
 	}
 
@@ -214,7 +198,7 @@ function draw() {
 			let a = agents[i];
 			a.move();
 			//a.display();
-			a.showPath();
+			if(show_path) a.showPath();
 
 			//spawn new agent after going off screen;
 			if(a.x > width || a.x < 0 || a.y > height || a.y < 0){
@@ -294,13 +278,14 @@ function Agent(ix, iy){
 	this.destPos = getDest();
 	this.yDest = this.destPos[1];
 	this.xDest = this.destPos[0];
+	this.waypoints = [1291, 2570, 2050];
 	
 	this.dest;
 	this.start = tileToIndex((this.y/GRID_SIZE)|0,(this.x/GRID_SIZE)|0);
-	if(random()>0.5){
+	if(random()<0.4){
 		this.dest = tileToIndex((this.yDest/GRID_SIZE)|0,(this.xDest/GRID_SIZE)|0);
 	}else{
-		this.dest = 743;
+		this.dest = this.waypoints[Math.floor(Math.random()*this.waypoints.length)];
 	}
 	
 
