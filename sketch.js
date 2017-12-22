@@ -10,15 +10,14 @@ let show_path = true;
 
 let agents = [];
 let tiles = [];
-let path = [];
+let waypoints = [];
 let treads = {};
 let canvas;
-let slider, buttonStop, buttonClear, buttonNew
+let slider, buttonStop, buttonClear, buttonAdd
 
 function setup() {
 	canvas = createCanvas((GRID_WIDTH*GRID_SIZE),(GRID_HEIGHT*GRID_SIZE));
-	canvas.position(2, 50);
-	canvas.mousePressed(createAgentAtClick);
+	canvas.mousePressed(onClickCanvas);
 	frameRate(30);
 
 	setupControls();
@@ -28,31 +27,51 @@ function setup() {
 	noStroke();
 
 	//init array of Tiles with GRID_SIZE
-	let index = 0;
 	for(let i=0; i<(GRID_HEIGHT*GRID_SIZE); i+=GRID_SIZE){
 		for(let j=0; j<(GRID_WIDTH*GRID_SIZE); j+=GRID_SIZE){
-			tiles.push(new Tile(j, i, index));
-			index++;
+			tiles.push(new Tile(j, i));
 		}
 	}
-	console.log(tiles);
-	//init list of NUMAGENTS agents 
-	for(let i=0; i<NUMAGENTS; i++){
-		let r = random(0,4);
-		if(r<1){
-			agents.push(new Agent(0, random(0, height))); //left
-		}else if(r<2){
-			agents.push(new Agent(random(0,width), 0)); //top
-		}else if(r<3){
-			agents.push(new Agent(width, random(0,height))); //right
-		}else{
-			agents.push(new Agent(random(0,height), height)); //bottom
-		}
+
+	for(let i=0; i<tiles.length; i++){
+		let [x,y] = indexToTile(i);
+		treads[i] = 100+(noise(x*0.2,y*0.2)*50);
 	}
-	
+
+	waypoints.push(Math.floor(Math.random()*tiles.length));
+
+	initAgents(NUMAGENTS);
 
 }
 
+
+function setupControls(){
+	let row = 30;
+	canvas.position(2, 55);
+
+	buttonStop = createButton("Stop");
+	buttonStop.position(2, row);
+	buttonStop.mousePressed(removeAgents);
+
+	buttonAdd = createButton("Add");
+	buttonAdd.position(52, row);
+	buttonAdd.mousePressed(function() { initAgents(1);})
+
+	buttonClear = createButton("Clear");
+	buttonClear.position(100, row);
+	buttonClear.mousePressed(clearTiles);
+
+	slider = createSlider(5, 50, 20);
+	slider.position(150,row);
+	slider.style('width', '150px');
+
+	let text = createDiv("Click to add a wall tile, click again (double-click) to add a waypoint.</br>"+
+							"'Stop' will remove all pathfinding agents, 'Add' will add one agent, 'Clear' will reset the terrain.</br>"+
+							"Use the slider to adjust simulation speed.");
+	text.position(2, height+60);
+}
+
+//spawns n agents on a random spot along the perimeter
 function initAgents(num){
 	for(let i=0; i<num; i++){
 		let r = random(0,4);
@@ -68,32 +87,16 @@ function initAgents(num){
 	}
 }
 
-function setupControls(){
-	buttonStop = createButton("Stop");
-	buttonStop.position(2, 30);
-	buttonStop.mousePressed(removeAgents);
-
-	buttonClear = createButton("Clear");
-	buttonClear.position(50, 30);
-	buttonClear.mousePressed(clearTiles);
-
-	buttonNew = createButton("New");
-	buttonNew.position(100, 30);
-	buttonNew.mousePressed(function() { initAgents(NUMAGENTS);})
-
-	slider = createSlider(1, 20, 2);
-	slider.position(150,30);
-	slider.style('width', '150px');
-}
-
-function createAgentAtClick(){
-	
-	//agents.push(new Agent(mouseX, mouseY));
-
+function onClickCanvas(){
 	let k = tileToIndex( (mouseY/GRID_SIZE)|0, (mouseX/GRID_SIZE)|0);
 	console.log("click",mouseX,mouseY, "on tile ", k);
-
-	treads[k] = 300;
+	
+	if(treads[k] == 300){
+		waypoints.push(k);
+		console.log("added waypoint at "+k);
+	}else{
+		treads[k] = 300;
+	}
 }
 
 function removeAgents(){
@@ -102,8 +105,10 @@ function removeAgents(){
 
 function clearTiles(){
 	for(k in treads){
-		treads[k] = 110;
+		let [x,y] = indexToTile(k);
+		treads[k] = 100+(noise(x*0.2,y*0.2)*50);
 	}
+	waypoints.length = 0;
 }
 
 function tileToIndex(i,j){
@@ -184,8 +189,13 @@ function search(start, dest){
 }
 
 function draw() {
-	//console.log(treads);
-	//frameRate(slider.value());
+
+	//set waypoint treads for color
+	for(let i=0; i<waypoints.length; i++){
+		treads[waypoints[i]] = 0;
+	}
+
+	//set tile colors based on treads, and draw
 	for (let i=0; i<tiles.length; i++){
 		if(i in treads){
 			tiles[i].green = treads[i];
@@ -193,33 +203,33 @@ function draw() {
 		tiles[i].display();
 	}
 
+
+	//draw agents and their paths
 	if(agents.length > 0){
 		for(let i = 0; i<agents.length; i++){
 			let a = agents[i];
+			a.update();
 			a.move();
 			//a.display();
 			if(show_path) a.showPath();
 
 			//spawn new agent after going off screen;
 			if(a.x > width || a.x < 0 || a.y > height || a.y < 0){
-				let r = random(0,4);
-				if(r<1){
-					agents[i] = new Agent(0, random(0, height)); //left
-				}else if(r<2){
-					agents[i] = new Agent(random(0,width), 0); //top
-				}else if(r<3){
-					agents[i] = new Agent(width, random(0,height)); //right
-				}else{
-					agents[i] = new Agent(random(0,height), height); //bottom
+				let r = random();
+				console.log(r);
+				if(r<0.25){
+					agents[i] = new Agent(0, random(0, height-1)); //left
+				}else if(r<0.5){
+					agents[i] = new Agent(random(0,width-1), 0); //top
+				}else if(r<0.75){
+					agents[i] = new Agent(width-1, random(0, height-1)); //right
+				}else if(r<1){
+					agents[i] = new Agent(random(0,width-1), height-1); //bottom
 				}
 
 			}
 		}
 	}
-	//let path = search(0, 100);
-	//console.log(path);
-	//drawPath(path);
-
 }
 
 function drawPath(path){
@@ -241,7 +251,7 @@ function drawPath(path){
 function markPathTread(path){
 	for(let i=0; i<path.length-1; i++){
 		if(path[i] in treads){
-			if(treads[path[i]]>0){
+			if(treads[path[i]]>1){
 				treads[path[i]] -=1;
 			}
 		}else{
@@ -250,7 +260,7 @@ function markPathTread(path){
 	}
 }
 
-function getDest(){
+function getRandomDest(){
 	let l, h;
 	if(random()>0.5){
 		l = random(width-1);
@@ -275,29 +285,27 @@ function getDest(){
 function Agent(ix, iy){
 	this.x = ix;
 	this.y = iy;
-	this.destPos = getDest();
+	this.destPos = getRandomDest();
 	this.yDest = this.destPos[1];
 	this.xDest = this.destPos[0];
-	this.waypoints = [1291, 2570, 2050];
-	
-	this.dest;
-	this.start = tileToIndex((this.y/GRID_SIZE)|0,(this.x/GRID_SIZE)|0);
-	if(random()<0.4){
-		this.dest = tileToIndex((this.yDest/GRID_SIZE)|0,(this.xDest/GRID_SIZE)|0);
-	}else{
-		this.dest = this.waypoints[Math.floor(Math.random()*this.waypoints.length)];
-	}
-	
+	this.path = [];
 
-	this.path = search(this.start, this.dest);
-	markPathTread(this.path);
+	if(waypoints.length>0){
+		this.start = tileToIndex((this.y/GRID_SIZE)|0,(this.x/GRID_SIZE)|0);
+		this.dest = waypoints[Math.floor(Math.random()*waypoints.length)];
+		this.path = search(this.start, this.dest);
+		markPathTread(this.path);
+	}
+
 
 	this.xSpeed = (this.xDest - this.x);
 	this.ySpeed = (this.yDest - this.y);
-	let factor = slider.value()/Math.sqrt(this.xSpeed * this.xSpeed + this.ySpeed * this.ySpeed);
-	this.xSpeed *= factor;
-	this.ySpeed *= factor;
 
+	this.update = function(){
+		let factor = slider.value()/Math.sqrt(this.xSpeed * this.xSpeed + this.ySpeed * this.ySpeed);
+		this.xSpeed *= factor;
+		this.ySpeed *= factor;
+	};
 
 	this.display = function() {
 		fill(0, 75, 50);
@@ -312,14 +320,13 @@ function Agent(ix, iy){
 
 	this.showPath = function(){
 		drawPath(this.path);
-	}
+	};
 };
 
 //Tile class
-function Tile(ix, jy, ii){
+function Tile(ix, jy){
 	this.x = ix;
 	this.y = jy;
-	this.i = ii;
 	this.green = 110;
 
 
